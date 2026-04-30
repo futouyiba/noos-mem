@@ -114,10 +114,16 @@ node shuttle/cli/import.mjs --process https://chatgpt.com/share/xxx
 
 也可以手动投递：将 raw handoff 放入 `inbox/`，文件名格式 `<date>_<slug>.raw.md`，frontmatter 包含 `type: raw_handoff` 和 `status: raw`。
 
+**方式 D: ChatGPT Handoff Skill（从源头推送）**
+
+将 `shuttle/chatgpt-handoff-skill.md` 中的 prompt 粘贴到 ChatGPT 的 Custom Instructions。讨论结束后说 "生成 Handoff"，ChatGPT 会直接输出格式正确的 raw handoff，复制保存到 `shuttle/inbox/` 即可。
+
 ### 3. 运行 Processor
 
 ```bash
-node processor/process.mjs
+node processor/process.mjs              # 完整处理（需要 config.json）
+node processor/process.mjs --dry-run    # 验证流水线，不调用 LLM
+node processor/process.mjs --index-only # 仅重新生成索引和上下文包
 ```
 
 Processor 会：

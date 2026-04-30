@@ -895,25 +895,109 @@ async function processRawHandoff(raw, config, knowledge) {
   return { handoffId, analysis, blocksWritten: blocks.length }
 }
 
+// ─── CLI flags ──────────────────────────────────────────────────────
+
+function parseCLIFlags(argv) {
+  const flags = { dryRun: false, indexOnly: false }
+  for (const arg of argv.slice(2)) {
+    if (arg === "--dry-run" || arg === "-n") flags.dryRun = true
+    if (arg === "--index-only") flags.indexOnly = true
+  }
+  return flags
+}
+
 // ─── Entry point ────────────────────────────────────────────────────
 
 async function main() {
-  console.log("=== Shuttle Processor ===\n")
-
-  const config = loadConfig()
-  console.log(`LLM: ${config.llm.model} @ ${config.llm.endpoint}`)
+  const flags = parseCLIFlags(process.argv)
+  const mode = flags.dryRun ? "DRY RUN" : flags.indexOnly ? "INDEX ONLY" : "FULL"
+  console.log(`=== Shuttle Processor (${mode}) ===\n`)
 
   // Scan inbox
   const rawHandoffs = scanInbox()
+  console.log(`Inbox: ${rawHandoffs.length} raw handoff(s)`)
+  for (const raw of rawHandoffs) {
+    const title = raw.frontmatter?.title || raw.file
+    const source = raw.frontmatter?.source || "unknown"
+    console.log(`  - ${raw.file} [${source}] "${title}"`)
+  }
+
+  // Scan existing knowledge
+  const knowledge = scanExistingKnowledge()
+  console.log(`\nKnowledge base: ${knowledge.concepts.length} concepts, ${knowledge.decisions.length} decisions, ${knowledge.openQuestions.length} open questions, ${knowledge.handoffs.length} handoffs`)
+
+  // Index-only mode: regenerate indexes and context packages, skip LLM
+  if (flags.indexOnly) {
+    console.log("\nRegenerating indexes and context packages...")
+    updatePendingIndex()
+    updateLatestView()
+    generateAllIndexes()
+    generateAllContextPackages()
+    console.log("\n=== Index Regeneration Complete ===")
+    return
+  }
+
+  // Dry-run mode: validate pipeline without calling LLM
+  if (flags.dryRun) {
+    console.log("\n--- Dry Run: validating pipeline ---")
+
+    if (rawHandoffs.length === 0) {
+      console.log("\nNo raw handoffs to process. Pipeline validation passed.")
+      return
+    }
+
+    for (const raw of rawHandoffs) {
+      const { frontmatter, body } = raw
+      console.log(`\n  Validating: ${raw.file}`)
+      console.log(`    Frontmatter: ${frontmatter ? "OK" : "MISSING"}`)
+      if (frontmatter) {
+        console.log(`    type: ${frontmatter.type || "(missing)"}`)
+        console.log(`    status: ${frontmatter.status || "(missing)"}`)
+        console.log(`    title: ${frontmatter.title || "(missing)"}`)
+        console.log(`    source: ${frontmatter.source || "(missing)"}`)
+      }
+      console.log(`    Body length: ${body.length} chars`)
+    }
+
+    // Validate prompts and rules load correctly
+    try {
+      loadPrompt("analysis")
+      console.log("\n  Prompt 'analysis': OK")
+    } catch (e) {
+      console.error(`\n  Prompt 'analysis': FAILED — ${e.message}`)
+    }
+    try {
+      loadPrompt("generation")
+      console.log("  Prompt 'generation': OK")
+    } catch (e) {
+      console.error(`  Prompt 'generation': FAILED — ${e.message}`)
+    }
+    try {
+      loadRules()
+      console.log("  Rules: OK")
+    } catch (e) {
+      console.error(`  Rules: FAILED — ${e.message}`)
+    }
+
+    // Regenerate indexes (no LLM needed)
+    console.log("\n  Regenerating indexes...")
+    updatePendingIndex()
+    updateLatestView()
+    generateAllIndexes()
+    generateAllContextPackages()
+
+    console.log("\n=== Dry Run Complete — pipeline is valid ===")
+    return
+  }
+
+  // Full mode: requires config.json with LLM credentials
+  const config = loadConfig()
+  console.log(`LLM: ${config.llm.model} @ ${config.llm.endpoint}`)
+
   if (rawHandoffs.length === 0) {
     console.log("\nNo raw handoffs found in inbox/. Nothing to process.")
     return
   }
-  console.log(`\nFound ${rawHandoffs.length} raw handoff(s) to process.`)
-
-  // Scan existing knowledge
-  const knowledge = scanExistingKnowledge()
-  console.log(`Knowledge base: ${knowledge.concepts.length} concepts, ${knowledge.decisions.length} decisions, ${knowledge.openQuestions.length} open questions, ${knowledge.handoffs.length} handoffs`)
 
   // Process each raw handoff
   const results = []
