@@ -1,3 +1,5 @@
+> **命名更新**：Agent Inbox 已更名为 **Shuttle**（梭子），隶属于 **LLOS**（Large Language Operation System）。本文档保留原始头脑风暴内容作为历史参考。
+
 Agent Inbox：从 ChatGPT 到 Coding Agent 的需求中转层
 
 0. 一句话定义

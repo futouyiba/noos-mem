@@ -12,7 +12,7 @@
 
 ## 输出格式
 
-使用 `---FILE: path---` 和 `---END FILE---` 标记每个文件。路径相对于 `agent-inbox/` 根目录。
+使用 `---FILE: path---` 和 `---END FILE---` 标记每个文件。路径相对于 `shuttle/` 根目录。
 
 **重要**：所有路径必须以 `handoffs/`、`wiki/` 或 `agent-views/` 开头。
 

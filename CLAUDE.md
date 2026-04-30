@@ -8,14 +8,23 @@ This is the **noos-mem** repository — a meta-project for **NOOS** (Natural-lan
 
 Naming system:
 - **NOOS** — the operating system (from Greek *nous*: mind, intellect)
-- **Loom** — the knowledge weaving engine
-- **Shuttle** — the requirement intake module (梭子)
+- **Loom** — the knowledge weaving engine (= llm_wiki)
+- **Shuttle** — the requirement intake module (梭子, = shuttle/)
+
+Architecture overview:
+```
+ChatGPT 深度讨论
+  ↓
+Shuttle: raw handoff → Processor → processed handoff + wiki nodes + agent view
+  ↓
+Coding Agent: reads agent view → retrieves context from wiki → executes → backfills
+```
 
 Contents:
 
 1. **llm_wiki/** — A Tauri v2 desktop application (git submodule from `nashsu/llm_wiki`) that turns documents into an organized, interlinked knowledge base using LLMs. Based on Karpathy's LLM Wiki pattern. This is the core of **Loom**.
-2. **shuttle/** — **Shuttle**: the requirement intake module. A Git-first handoff layer that structures ChatGPT discussions into actionable Handoff objects for Coding Agents (Codex/Kiro/Claude Code).
-3. **docs/** — Design documents for the Shuttle system and NOOS architecture.
+2. **shuttle/** — **Shuttle**: the requirement intake module. A Git-first handoff layer that structures ChatGPT discussions into actionable Handoff objects for Coding Agents (Codex/Kiro/Claude Code). See `shuttle/README.md` for usage.
+3. **docs/** — Design documents for the Shuttle system and NOOS architecture (historical, uses pre-rename "Agent Inbox" terminology).
 
 ## Build & Development Commands
 
@@ -60,9 +69,17 @@ npx vitest run --reporter=verbose -t "pattern"
 
 Test config is in `vite.config.ts` under the `test` key (vitest uses vite config). Test env setup loads `.env.test.local` automatically. Real-LLM tests use `--no-file-parallelism` to avoid concurrent API calls.
 
+### Shuttle Processor
+
+```bash
+cd shuttle/processor
+cp config.example.json config.json   # fill in API endpoint + key
+node process.mjs                     # processes inbox/ → handoffs/ + wiki/ + agent-views/
+```
+
 ## Architecture
 
-### llm_wiki — Tauri Desktop App
+### Loom (llm_wiki) — Tauri Desktop App
 
 **Frontend** (React 19 + TypeScript + Vite):
 - `src/components/` — UI organized by feature: `chat/`, `graph/`, `editor/`, `sources/`, `search/`, `lint/`, `review/`, `settings/`, `layout/`, `project/`
@@ -97,15 +114,47 @@ User question → Tokenized search (+ optional vector search via LanceDB)
 
 **LLM providers:** Multi-provider support (OpenAI, Anthropic, Google, Ollama, Custom) with provider-specific streaming. Configured in `src/lib/llm-providers.ts` and `src/lib/llm-client.ts`.
 
-### docs/ — Shuttle & NOOS Design
+### Shuttle — Requirement Intake Module
 
-Design documents for the Shuttle (formerly Agent Inbox) system:
-- `agent-inbox-design.md` — Refined design: Handoff objects with frontmatter-based state machine (`raw → triaged → ready → in-progress → implemented → verified → archived`), wiki node types (concept, decision, open-question), agent view generation
+The Shuttle module is the entry point of the Loom system. It processes raw conversations into structured, actionable handoffs.
+
+**Directory structure:**
+```
+shuttle/
+├── inbox/              # Raw handoff 投递区
+├── handoffs/           # Processed handoff（所有状态，frontmatter 管理）
+├── wiki/               # 知识沉淀（concepts, decisions, open-questions）
+├── agent-views/        # Agent 消费视图
+│   ├── latest.md       # 当前最高优先级 ready handoff
+│   ├── pending-index.md
+│   └── context/        # 预生成的上下文包
+├── indexes/            # 自动生成的知识索引（供 Agent 导航）
+├── processor/          # Processor 脚本和配置
+└── AGENTS.md           # Agent 知识检索协议
+```
+
+**Key data flow — Shuttle Pipeline:**
+```
+Raw handoff (inbox/) → Processor (two-step LLM chain)
+  → Processed handoff (handoffs/)
+  → Wiki nodes (wiki/concepts/, wiki/decisions/, wiki/open-questions/)
+  → Agent view (agent-views/latest.md)
+  → Context package (agent-views/context/<slug>-context.md)
+  → Knowledge indexes (indexes/)
+```
+
+**Progressive Knowledge Retrieval:**
+Coding Agents follow the Retrieval Protocol in `shuttle/AGENTS.md` to progressively build context from the wiki. The flow is:
+1. Read Handoff + context package (80% of needed context)
+2. Follow wikilinks and frontmatter references to deepen understanding
+3. Consult indexes for broader system-level context
+4. Stop when all referenced nodes are resolved
+
+### docs/ — Historical Design Documents
+
+Design documents using pre-rename "Agent Inbox" terminology:
+- `agent-inbox-design.md` — Refined design: Handoff objects with frontmatter-based state machine, wiki node types, agent view generation
 - `originalThoughts.md` — Initial brainstorm with 5-layer architecture
-
-### shuttle/ — Requirement Intake Module
-
-The Shuttle module is the entry point of the Loom system. It processes raw conversations into structured, actionable handoffs. See `shuttle/README.md` for usage.
 
 ## Conventions
 

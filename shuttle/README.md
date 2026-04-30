@@ -46,12 +46,19 @@ shuttle/
 │   └── open-questions/
 ├── agent-views/        # Agent 消费视图
 │   ├── latest.md       # 当前最高优先级 ready handoff
-│   └── pending-index.md
-└── processor/          # Processor 脚本和配置
-    ├── process.mjs
-    ├── config.json      # 从 config.example.json 复制并填入 API key
-    ├── prompts/
-    └── rules/
+│   ├── pending-index.md
+│   └── context/        # 预生成的上下文包（每个 handoff 一个）
+├── indexes/            # 自动生成的知识索引（供 Agent 导航）
+│   ├── knowledge-map.md
+│   ├── concept-index.md
+│   ├── decision-index.md
+│   └── system-index.md
+├── processor/          # Processor 脚本和配置
+│   ├── process.mjs
+│   ├── config.json      # 从 config.example.json 复制并填入 API key
+│   ├── prompts/
+│   └── rules/
+└── AGENTS.md           # Coding Agent 知识检索协议
 ```
 
 ## 使用方式
@@ -82,10 +89,17 @@ Processor 会：
 - 生成 processed handoff 到 `handoffs/`
 - 生成 wiki 节点到 `wiki/`
 - 更新 `agent-views/latest.md` 和 `agent-views/pending-index.md`
+- 生成知识索引到 `indexes/`（knowledge-map, concept-index, decision-index, system-index）
+- 生成上下文包到 `agent-views/context/`（每个活跃 handoff 一个）
 
 ### 4. Coding Agent 消费
 
-Coding Agent 读取 `agent-views/latest.md` 获取当前最高优先级的 ready handoff。
+Coding Agent 按 `AGENTS.md` 中的 Retrieval Protocol 渐进式获取上下文：
+
+1. 读 `agent-views/latest.md` → 任务分配
+2. 读 `agent-views/context/<slug>-context.md` → 预生成的上下文包（~80% 所需知识）
+3. 按需深入 `wiki/` 中的具体节点
+4. 参考 `indexes/` 获取系统级全局视图
 
 ## Frontmatter 约定
 

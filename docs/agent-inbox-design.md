@@ -1,5 +1,7 @@
 # Agent Inbox：从 ChatGPT 到 Coding Agent 的需求中转层
 
+> **命名更新**：Agent Inbox 已更名为 **Shuttle**（梭子），作为 **Loom**（织机，即 llm_wiki）的需求入口模块，隶属于 **LLOS**（Large Language Operation System）。本文档保留原始设计内容作为历史参考。
+
 > 调优版。原始思路见 [originalThoughts.md](./originalThoughts.md)。
 
 ## 0. 一句话定义

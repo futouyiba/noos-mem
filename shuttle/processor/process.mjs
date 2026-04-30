@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Agent Inbox Processor — MVP
+ * Shuttle Processor — MVP
  *
  * Scans inbox/ for raw handoffs, runs a two-step LLM chain
  * (Analysis → Generation), and writes processed handoffs,
@@ -146,7 +146,7 @@ const FENCE_LINE = /^\s{0,3}(```+|~~~+)/
 /**
  * Allowed output prefixes. Blocks with paths outside these dirs are rejected.
  */
-const ALLOWED_PREFIXES = ["handoffs/", "wiki/", "agent-views/"]
+const ALLOWED_PREFIXES = ["handoffs/", "wiki/", "agent-views/", "indexes/"]
 
 function isSafePath(p) {
   if (typeof p !== "string" || p.trim().length === 0) return false
@@ -497,6 +497,297 @@ function updateLatestView() {
   // (The LLM generation step should have already created latest.md)
 }
 
+// ─── Rich knowledge indexes ────────────────────────────────────────
+
+function scanKnowledgeDeep() {
+  const result = { concepts: [], decisions: [], openQuestions: [], handoffs: [], systems: new Map() }
+
+  const scanDir = (dir, key, pathPrefix) => {
+    if (!existsSync(dir)) return
+    const files = readdirSync(dir).filter((f) => f.endsWith(".md"))
+    for (const file of files) {
+      const content = readFileSync(join(dir, file), "utf-8")
+      const { frontmatter, body } = parseFrontmatter(content)
+      if (!frontmatter) continue
+
+      const firstParagraph = body
+        .replace(/^#.*\n/gm, "")
+        .trim()
+        .split("\n\n")[0]
+        ?.trim()
+        .slice(0, 200) || ""
+
+      const entry = {
+        file,
+        path: `${pathPrefix}/${file}`,
+        title: frontmatter.title || file.replace(/\.md$/, ""),
+        status: frontmatter.status || "unknown",
+        id: frontmatter.id || "",
+        system: frontmatter.system || "",
+        tags: Array.isArray(frontmatter.tags) ? frontmatter.tags : [],
+        related: Array.isArray(frontmatter.related) ? frontmatter.related : [],
+        relatedConcepts: Array.isArray(frontmatter.related_concepts) ? frontmatter.related_concepts : [],
+        relatedDecisions: Array.isArray(frontmatter.related_decisions) ? frontmatter.related_decisions : [],
+        summary: firstParagraph,
+      }
+
+      result[key].push(entry)
+
+      if (entry.system) {
+        if (!result.systems.has(entry.system)) {
+          result.systems.set(entry.system, { concepts: [], decisions: [], openQuestions: [], handoffs: [] })
+        }
+        result.systems.get(entry.system)[key].push(entry)
+      }
+    }
+  }
+
+  scanDir(join(ROOT, "wiki", "concepts"), "concepts", "wiki/concepts")
+  scanDir(join(ROOT, "wiki", "decisions"), "decisions", "wiki/decisions")
+  scanDir(join(ROOT, "wiki", "open-questions"), "openQuestions", "wiki/open-questions")
+  scanDir(join(ROOT, "handoffs"), "handoffs", "handoffs")
+
+  return result
+}
+
+function generateKnowledgeMap(deep) {
+  let md = `# Knowledge Map\n\n`
+  md += `> 自动生成，请勿手动编辑。由 \`processor/process.mjs\` 维护。\n\n`
+  md += `总计：${deep.concepts.length} concepts, ${deep.decisions.length} decisions, ${deep.openQuestions.length} open questions, ${deep.handoffs.length} handoffs\n\n`
+
+  if (deep.systems.size > 0) {
+    for (const [system, nodes] of deep.systems) {
+      md += `## ${system}\n\n`
+      if (nodes.concepts.length > 0) {
+        md += `**Concepts:** ${nodes.concepts.map((c) => `[[${c.title}]]`).join(", ")}\n\n`
+      }
+      if (nodes.decisions.length > 0) {
+        md += `**Decisions:** ${nodes.decisions.map((d) => `[[${d.title}]]`).join(", ")}\n\n`
+      }
+      if (nodes.openQuestions.length > 0) {
+        md += `**Open Questions:** ${nodes.openQuestions.map((q) => `[[${q.title}]]`).join(", ")}\n\n`
+      }
+      if (nodes.handoffs.length > 0) {
+        md += `**Handoffs:** ${nodes.handoffs.map((h) => `[${h.status}] [[${h.title}]]`).join(", ")}\n\n`
+      }
+      md += `---\n\n`
+    }
+  }
+
+  // Ungrouped nodes (no system field)
+  const ungrouped = {
+    concepts: deep.concepts.filter((c) => !c.system),
+    decisions: deep.decisions.filter((d) => !d.system),
+    openQuestions: deep.openQuestions.filter((q) => !q.system),
+    handoffs: deep.handoffs.filter((h) => !h.system),
+  }
+  const hasUngrouped = Object.values(ungrouped).some((arr) => arr.length > 0)
+  if (hasUngrouped) {
+    md += `## (ungrouped)\n\n`
+    for (const [key, label] of [["concepts", "Concepts"], ["decisions", "Decisions"], ["openQuestions", "Open Questions"], ["handoffs", "Handoffs"]]) {
+      if (ungrouped[key].length > 0) {
+        md += `**${label}:** ${ungrouped[key].map((n) => `[[${n.title}]]`).join(", ")}\n\n`
+      }
+    }
+  }
+
+  writeOutputFile("indexes/knowledge-map.md", md)
+}
+
+function generateConceptIndex(deep) {
+  let md = `# Concept Index\n\n`
+  md += `> 自动生成，请勿手动编辑。\n\n`
+
+  if (deep.concepts.length === 0) {
+    md += `*暂无 concept 节点。*\n`
+  } else {
+    for (const c of deep.concepts) {
+      md += `### [[${c.title}]]\n\n`
+      md += `- **Path:** \`${c.path}\`\n`
+      if (c.system) md += `- **System:** ${c.system}\n`
+      if (c.tags.length > 0) md += `- **Tags:** ${c.tags.join(", ")}\n`
+      if (c.related.length > 0) md += `- **Related:** ${c.related.map((r) => `\`${r}\``).join(", ")}\n`
+      if (c.summary) md += `- **Summary:** ${c.summary}\n`
+      md += `\n`
+    }
+  }
+
+  writeOutputFile("indexes/concept-index.md", md)
+}
+
+function generateDecisionIndex(deep) {
+  let md = `# Decision Index\n\n`
+  md += `> 自动生成，请勿手动编辑。\n\n`
+
+  if (deep.decisions.length === 0) {
+    md += `*暂无 decision 节点。*\n`
+  } else {
+    for (const d of deep.decisions) {
+      md += `### [[${d.title}]]\n\n`
+      md += `- **Path:** \`${d.path}\`\n`
+      md += `- **Status:** ${d.status}\n`
+      if (d.system) md += `- **System:** ${d.system}\n`
+      if (d.summary) md += `- **Summary:** ${d.summary}\n`
+      md += `\n`
+    }
+  }
+
+  writeOutputFile("indexes/decision-index.md", md)
+}
+
+function generateSystemIndex(deep) {
+  let md = `# System Index\n\n`
+  md += `> 自动生成，请勿手动编辑。\n\n`
+
+  if (deep.systems.size === 0) {
+    md += `*暂无 system 分组。*\n`
+  } else {
+    for (const [system, nodes] of deep.systems) {
+      md += `## ${system}\n\n`
+      const all = [
+        ...nodes.concepts.map((n) => ({ ...n, kind: "concept" })),
+        ...nodes.decisions.map((n) => ({ ...n, kind: "decision" })),
+        ...nodes.openQuestions.map((n) => ({ ...n, kind: "open-question" })),
+        ...nodes.handoffs.map((n) => ({ ...n, kind: "handoff" })),
+      ]
+      for (const n of all) {
+        md += `- [${n.kind}] **[[${n.title}]]** — \`${n.path}\`${n.status !== "unknown" ? ` (${n.status})` : ""}\n`
+      }
+      md += `\n`
+    }
+  }
+
+  writeOutputFile("indexes/system-index.md", md)
+}
+
+function generateAllIndexes() {
+  const deep = scanKnowledgeDeep()
+  generateKnowledgeMap(deep)
+  generateConceptIndex(deep)
+  generateDecisionIndex(deep)
+  generateSystemIndex(deep)
+  return deep
+}
+
+// ─── Context package generation ────────────────────────────────────
+
+function generateContextPackage(handoffFile, deep) {
+  const handoffsDir = join(ROOT, "handoffs")
+  const fullPath = join(handoffsDir, handoffFile)
+  if (!existsSync(fullPath)) return
+
+  const content = readFileSync(fullPath, "utf-8")
+  const { frontmatter } = parseFrontmatter(content)
+  if (!frontmatter) return
+
+  const slug = handoffFile.replace(/\.md$/, "")
+  const title = frontmatter.title || slug
+
+  let md = `# Context Package: ${title}\n\n`
+  md += `> 自动生成自 handoffs/${handoffFile}。包含与此 Handoff 最相关的知识节点摘要。\n`
+  md += `> 如需更多上下文，按 AGENTS.md 中的 Retrieval Protocol 从 wiki/ 中获取。\n\n`
+
+  // Collect referenced concept paths
+  const conceptPaths = Array.isArray(frontmatter.related_concepts) ? frontmatter.related_concepts : []
+  const decisionPaths = Array.isArray(frontmatter.related_decisions) ? frontmatter.related_decisions : []
+  const oqPaths = Array.isArray(frontmatter.open_questions) ? frontmatter.open_questions : []
+
+  const readNodeSummary = (relPath) => {
+    const absPath = join(ROOT, relPath)
+    if (!existsSync(absPath)) return null
+    const nodeContent = readFileSync(absPath, "utf-8")
+    const { frontmatter: nodeFm, body: nodeBody } = parseFrontmatter(nodeContent)
+    const nodeTitle = nodeFm?.title || relPath.split("/").pop().replace(/\.md$/, "")
+    const summary = nodeBody
+      .replace(/^#.*\n/gm, "")
+      .trim()
+      .split("\n\n")
+      .slice(0, 2)
+      .join("\n\n")
+      .slice(0, 400)
+    return { title: nodeTitle, summary, related: nodeFm?.related || [], path: relPath }
+  }
+
+  // Core Concepts
+  if (conceptPaths.length > 0) {
+    md += `## Core Concepts\n\n`
+    for (const p of conceptPaths) {
+      const node = readNodeSummary(p)
+      if (node) {
+        md += `### [[${node.title}]]\n\n${node.summary || "*暂无摘要*"}\n\n`
+      } else {
+        md += `### ${p}\n\n*节点不存在，可能尚未生成。*\n\n`
+      }
+    }
+  }
+
+  // Relevant Decisions
+  if (decisionPaths.length > 0) {
+    md += `## Relevant Decisions\n\n`
+    for (const p of decisionPaths) {
+      const node = readNodeSummary(p)
+      if (node) {
+        md += `### [[${node.title}]]\n\n${node.summary || "*暂无摘要*"}\n\n`
+      } else {
+        md += `### ${p}\n\n*节点不存在，可能尚未生成。*\n\n`
+      }
+    }
+  }
+
+  // Open Questions
+  if (oqPaths.length > 0) {
+    md += `## Open Questions\n\n`
+    for (const p of oqPaths) {
+      const node = readNodeSummary(p)
+      if (node) {
+        md += `### [[${node.title}]]\n\n${node.summary || "*暂无摘要*"}\n\n`
+      } else {
+        md += `### ${p}\n\n*节点不存在，可能尚未生成。*\n\n`
+      }
+    }
+  }
+
+  // Related but not included — second-degree links
+  const included = new Set([...conceptPaths, ...decisionPaths, ...oqPaths])
+  const secondDegree = []
+  for (const p of included) {
+    const node = readNodeSummary(p)
+    if (node && Array.isArray(node.related)) {
+      for (const rel of node.related) {
+        if (!included.has(rel) && !secondDegree.some((s) => s.path === rel)) {
+          secondDegree.push({ path: rel, via: node.title })
+        }
+      }
+    }
+  }
+
+  if (secondDegree.length > 0) {
+    md += `## Related but not included\n\n`
+    for (const s of secondDegree) {
+      md += `- \`${s.path}\` — related via [[${s.via}]]\n`
+    }
+    md += `\n`
+  }
+
+  writeOutputFile(`agent-views/context/${slug}-context.md`, md)
+  console.log(`  [context] agent-views/context/${slug}-context.md`)
+}
+
+function generateAllContextPackages() {
+  const handoffsDir = join(ROOT, "handoffs")
+  if (!existsSync(handoffsDir)) return
+
+  const deep = scanKnowledgeDeep()
+  const files = readdirSync(handoffsDir).filter((f) => f.endsWith(".md"))
+  for (const file of files) {
+    const content = readFileSync(join(handoffsDir, file), "utf-8")
+    const { frontmatter } = parseFrontmatter(content)
+    if (!frontmatter) continue
+    if (frontmatter.status === "archived" || frontmatter.status === "discarded") continue
+    generateContextPackage(file, deep)
+  }
+}
+
 // ─── Mark raw handoff as processed ──────────────────────────────────
 
 function markRawAsProcessed(rawFile) {
@@ -607,7 +898,7 @@ async function processRawHandoff(raw, config, knowledge) {
 // ─── Entry point ────────────────────────────────────────────────────
 
 async function main() {
-  console.log("=== Agent Inbox Processor ===\n")
+  console.log("=== Shuttle Processor ===\n")
 
   const config = loadConfig()
   console.log(`LLM: ${config.llm.model} @ ${config.llm.endpoint}`)
@@ -637,6 +928,8 @@ async function main() {
   console.log("\nUpdating indexes...")
   updatePendingIndex()
   updateLatestView()
+  generateAllIndexes()
+  generateAllContextPackages()
 
   // Summary
   console.log("\n=== Processing Complete ===")
