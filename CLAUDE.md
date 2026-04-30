@@ -4,11 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **llos-mem** repository — a meta-project for **LLOS** (Large Language Operation System), containing:
+This is the **llos-mem** repository — a meta-project for **NOOS** (Noetic Operating System), a natural-language-first OS for organizing, orchestrating, and consuming knowledge through LLMs and Agents.
 
-1. **llm_wiki/** — A Tauri v2 desktop application (git submodule from `nashsu/llm_wiki`) that turns documents into an organized, interlinked knowledge base using LLMs. Based on Karpathy's LLM Wiki pattern. This is the core of **Loom** — the knowledge weaving engine.
-2. **shuttle/** — **Shuttle** (梭子): the requirement intake module. A Git-first handoff layer that structures ChatGPT discussions into actionable Handoff objects for Coding Agents (Codex/Kiro/Claude Code).
-3. **docs/** — Design documents for the Shuttle system and LLOS architecture.
+Naming system:
+- **NOOS** — the operating system (from Greek *nous*: mind, intellect)
+- **Loom** — the knowledge weaving engine
+- **Shuttle** — the requirement intake module (梭子)
+
+Contents:
+
+1. **llm_wiki/** — A Tauri v2 desktop application (git submodule from `nashsu/llm_wiki`) that turns documents into an organized, interlinked knowledge base using LLMs. Based on Karpathy's LLM Wiki pattern. This is the core of **Loom**.
+2. **shuttle/** — **Shuttle**: the requirement intake module. A Git-first handoff layer that structures ChatGPT discussions into actionable Handoff objects for Coding Agents (Codex/Kiro/Claude Code).
+3. **docs/** — Design documents for the Shuttle system and NOOS architecture.
 
 ## Build & Development Commands
 
@@ -90,7 +97,7 @@ User question → Tokenized search (+ optional vector search via LanceDB)
 
 **LLM providers:** Multi-provider support (OpenAI, Anthropic, Google, Ollama, Custom) with provider-specific streaming. Configured in `src/lib/llm-providers.ts` and `src/lib/llm-client.ts`.
 
-### docs/ — Shuttle & LLOS Design
+### docs/ — Shuttle & NOOS Design
 
 Design documents for the Shuttle (formerly Agent Inbox) system:
 - `agent-inbox-design.md` — Refined design: Handoff objects with frontmatter-based state machine (`raw → triaged → ready → in-progress → implemented → verified → archived`), wiki node types (concept, decision, open-question), agent view generation

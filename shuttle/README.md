@@ -1,6 +1,6 @@
 # Shuttle
 
-LLOS（Large Language Operation System）的需求梭子模块——Loom 知识织机的入口。把 ChatGPT 讨论中推敲出的决策、边界、验收标准，结构化为 Handoff 对象，供 Coding Agent 稳定消费。
+NOOS（Noetic Operating System）的需求梭子模块——Loom 知识织机的入口。把 ChatGPT 讨论中推敲出的决策、边界、验收标准，结构化为 Handoff 对象，供 Coding Agent 稳定消费。
 
 ## 工作流
 
