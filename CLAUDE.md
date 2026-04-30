@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **llos-mem** repository — a meta-project for **NOOS** (Natural-language Orchestration Operating System), a natural-language-first OS for organizing, orchestrating, and consuming knowledge through LLMs and Agents.
+This is the **noos-mem** repository — a meta-project for **NOOS** (Natural-language Orchestration Operating System), a natural-language-first OS for organizing, orchestrating, and consuming knowledge through LLMs and Agents.
 
 Naming system:
 - **NOOS** — the operating system (from Greek *nous*: mind, intellect)
