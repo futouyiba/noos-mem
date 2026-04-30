@@ -1,0 +1,9 @@
+{
+  "llm": {
+    "endpoint": "https://api.openai.com/v1/chat/completions",
+    "apiKey": "sk-...",
+    "model": "gpt-4o",
+    "maxTokens": 4096,
+    "temperature": 0.3
+  }
+}
