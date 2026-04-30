@@ -49,13 +49,18 @@ shuttle/
 │   ├── pending-index.md
 │   └── context/        # 预生成的上下文包（每个 handoff 一个）
 ├── indexes/            # 自动生成的知识索引（供 Agent 导航）
-│   ├── knowledge-map.md
-│   ├── concept-index.md
-│   ├── decision-index.md
-│   └── system-index.md
+├── cli/                # CLI 导入工具
+│   └── import.mjs
+├── lib/                # 共享模块
+│   └── conversation-to-handoff.mjs
+├── extension/          # Chrome 浏览器插件
+│   ├── manifest.json
+│   ├── popup.html
+│   ├── background.js
+│   └── content-scripts/
 ├── processor/          # Processor 脚本和配置
 │   ├── process.mjs
-│   ├── config.json      # 从 config.example.json 复制并填入 API key
+│   ├── config.json
 │   ├── prompts/
 │   └── rules/
 └── AGENTS.md           # Coding Agent 知识检索协议
@@ -73,9 +78,41 @@ cp config.example.json config.json
 
 ### 2. 投递 raw handoff
 
-将 ChatGPT 生成的 raw handoff 放入 `inbox/`，文件名格式：`<date>_<slug>.raw.md`。
+三种方式把 chatbot 对话导入 Shuttle，无需手动复制粘贴：
 
-frontmatter 必须包含 `type: raw_handoff` 和 `status: raw`。
+**方式 A: Claude Code 命令（最快）**
+
+在 Claude Code 中直接运行：
+```
+/shuttle-import <粘贴对话文本或 share link URL>
+```
+Claude Code 自身完成提取和写入，零外部依赖。
+
+**方式 B: CLI 工具**
+
+```bash
+# 从 share link 导入
+node shuttle/cli/import.mjs https://chatgpt.com/share/xxx
+node shuttle/cli/import.mjs https://claude.ai/share/xxx
+
+# 从本地文件导入
+node shuttle/cli/import.mjs conversation.json
+
+# 从剪贴板导入
+pbpaste | node shuttle/cli/import.mjs -
+
+# 导入后自动运行 Processor
+node shuttle/cli/import.mjs --process https://chatgpt.com/share/xxx
+```
+
+**方式 C: 浏览器插件（一键）**
+
+1. 在 Chrome 中加载 `shuttle/extension/`（开发者模式 → 加载已解压的扩展程序）
+2. 在 ChatGPT / Claude / Gemini 页面点击 Shuttle 图标
+3. 预览对话内容 → 点击 "Send to Shuttle"
+4. 自动投递到 `shuttle/inbox/`（通过 Loom 本地服务或 GitHub API）
+
+也可以手动投递：将 raw handoff 放入 `inbox/`，文件名格式 `<date>_<slug>.raw.md`，frontmatter 包含 `type: raw_handoff` 和 `status: raw`。
 
 ### 3. 运行 Processor
 
