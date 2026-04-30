@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **llos-mem** repository — a meta-project containing two concerns:
+This is the **llos-mem** repository — a meta-project for **LLOS** (Large Language Operation System), containing:
 
-1. **llm_wiki/** — A Tauri v2 desktop application (git submodule from `nashsu/llm_wiki`) that turns documents into an organized, interlinked knowledge base using LLMs. Based on Karpathy's LLM Wiki pattern.
-2. **docs/** — Design documents for an **Agent Inbox** system: a Git-first requirement handoff layer between ChatGPT discussions and Coding Agents (Codex/Kiro/Claude Code).
+1. **llm_wiki/** — A Tauri v2 desktop application (git submodule from `nashsu/llm_wiki`) that turns documents into an organized, interlinked knowledge base using LLMs. Based on Karpathy's LLM Wiki pattern. This is the core of **Loom** — the knowledge weaving engine.
+2. **shuttle/** — **Shuttle** (梭子): the requirement intake module. A Git-first handoff layer that structures ChatGPT discussions into actionable Handoff objects for Coding Agents (Codex/Kiro/Claude Code).
+3. **docs/** — Design documents for the Shuttle system and LLOS architecture.
 
 ## Build & Development Commands
 
@@ -89,13 +90,15 @@ User question → Tokenized search (+ optional vector search via LanceDB)
 
 **LLM providers:** Multi-provider support (OpenAI, Anthropic, Google, Ollama, Custom) with provider-specific streaming. Configured in `src/lib/llm-providers.ts` and `src/lib/llm-client.ts`.
 
-### docs/ — Agent Inbox Design
+### docs/ — Shuttle & LLOS Design
 
-Design documents for a planned Git-first requirement handoff system:
+Design documents for the Shuttle (formerly Agent Inbox) system:
 - `agent-inbox-design.md` — Refined design: Handoff objects with frontmatter-based state machine (`raw → triaged → ready → in-progress → implemented → verified → archived`), wiki node types (concept, decision, open-question), agent view generation
 - `originalThoughts.md` — Initial brainstorm with 5-layer architecture
 
-The Agent Inbox is not yet implemented as code. These are design specs for a separate `agent-inbox` repository.
+### shuttle/ — Requirement Intake Module
+
+The Shuttle module is the entry point of the Loom system. It processes raw conversations into structured, actionable handoffs. See `shuttle/README.md` for usage.
 
 ## Conventions
 

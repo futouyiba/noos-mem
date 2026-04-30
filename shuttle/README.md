@@ -1,6 +1,6 @@
-# Agent Inbox
+# Shuttle
 
-Git-first 的需求中转系统。把 ChatGPT 讨论中推敲出的决策、边界、验收标准，结构化为 Handoff 对象，供 Coding Agent 稳定消费。
+LLOS（Large Language Operation System）的需求梭子模块——Loom 知识织机的入口。把 ChatGPT 讨论中推敲出的决策、边界、验收标准，结构化为 Handoff 对象，供 Coding Agent 稳定消费。
 
 ## 工作流
 
@@ -37,7 +37,7 @@ raw → ready → in-progress → implemented → archived
 ## 目录结构
 
 ```
-agent-inbox/
+shuttle/
 ├── inbox/              # Raw handoff 投递区
 ├── handoffs/           # Processed handoff（所有状态，frontmatter 管理）
 ├── wiki/               # 知识沉淀
@@ -59,7 +59,7 @@ agent-inbox/
 ### 1. 配置 LLM
 
 ```bash
-cd agent-inbox/processor
+cd shuttle/processor
 cp config.example.json config.json
 # 编辑 config.json，填入 API endpoint 和 key
 ```
